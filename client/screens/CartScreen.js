@@ -1,15 +1,48 @@
 import { View, Text, StatusBar, TouchableOpacity, Image, ScrollView } from 'react-native'
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
 import { useNavigation } from '@react-navigation/native';
 
 import * as Icon from "react-native-feather";
 import { themeColors } from '../theme';
 import { featured } from '../constants';
+import { useDispatch, useSelector } from 'react-redux';
+import { selectRestaurant } from '../slices/restaurantSlice';
+import { removeFromCart, selectCartItems, selectCartTotal } from '../slices/cartSlice';
+
+
+
 
 export default function CartScreen() {
-    const restaurant = featured.restaurants[0];
+    const restaurant = useSelector(selectRestaurant)
     const navigation = useNavigation();
+    const cartItems = useSelector(selectCartItems);
+    const cartTotal = useSelector(selectCartTotal);
+    const [groupedItems, setGroupedItems] = useState();
+    const dispatch = useDispatch();
+    const [deliveryFee, setDeliveryFee] = useState(2);
+
+    useEffect(() => {
+        const gItems = cartItems.reduce((group, item) => {
+            if (group[item.id]) {
+                group[item.id].push(item);
+            } else {
+                group[item.id] = [item];
+            }
+            return group;
+        }, {})
+        setGroupedItems(gItems);
+        console.log('==============================================');
+        console.log('items: ', gItems);
+        console.log('Grouped', groupedItems);
+    }, [cartItems])
+
+    useEffect(() => {
+        if (cartTotal == 0) {
+            setDeliveryFee(0);
+        }
+    }, [cartTotal])
+
     return (
         <View className=" bg-white flex-1">
             {/* top button */}
@@ -45,17 +78,21 @@ export default function CartScreen() {
                 }}
 
             >
-                {
-                    restaurant.dishes.map((dish, index) => {
+                {groupedItems &&
+                    Object.entries(groupedItems).map(([key, items]) => {
+                        let dish = items[0];
                         return (
-                            <View key={index}
+                            <View key={key}
                                 className="flex-row items-center space-x-3 py-2 px-4 bg-white rounded-3xl mx-2 mb-3 shadow-md">
-                                <Text style={{ color: themeColors.text }} className="font-bold">2 x </Text>
+                                <Text style={{ color: themeColors.text }} className="font-bold">
+                                    {items.length} X
+                                </Text>
                                 <Image className="h-14 w-14 rounded-full" source={dish.image} />
                                 <Text className="flex-1 font-bold text-gray-700">{dish.name}</Text>
-                                <Text className="font-semibold text-base">${dish.pric}</Text>
+                                <Text className="font-semibold text-base">${dish.price}</Text>
                                 <TouchableOpacity
                                     className="p-1 rounded-full"
+                                    onPress={() => dispatch(removeFromCart({ id: dish.id }))}
                                     style={{ backgroundColor: themeColors.bgColor(1) }}
                                 >
                                     <Icon.Minus strokeWidth={2} height={20} width={20} stroke="white" />
@@ -69,20 +106,21 @@ export default function CartScreen() {
             <View style={{ backgroundColor: themeColors.bgColor(0.2) }} className=" p-6 px-8 rounded-t-3xl space-y-4">
                 <View className="flex-row justify-between">
                     <Text className="text-gray-700">Subtotal</Text>
-                    <Text className="text-gray-700">$20</Text>
+                    <Text className="text-gray-700">${cartTotal}</Text>
                 </View>
                 <View className="flex-row justify-between">
                     <Text className="text-gray-700">Delivery Fee</Text>
-                    <Text className="text-gray-700">$20</Text>
+                    <Text className="text-gray-700">${deliveryFee}</Text>
                 </View>
                 <View className="flex-row justify-between">
                     <Text className="font-extrabold">Order Total</Text>
-                    <Text className="font-extrabold">$40</Text>
+                    <Text className="font-extrabold">${deliveryFee + cartTotal}</Text>
                 </View>
                 <View>
                     <TouchableOpacity
                         style={{ backgroundColor: themeColors.bgColor(1) }}
                         onPress={() => navigation.navigate('PreparingOrder')}
+                        disabled={!cartItems.length}
                         className="p-3 rounded-full">
                         <Text className="text-white text-center font-bold text-lg">Place Order</Text>
                     </TouchableOpacity>
